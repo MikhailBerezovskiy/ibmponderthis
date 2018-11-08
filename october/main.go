@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 /*
 Put N points on integer coordinates of a rectangular grid
@@ -24,18 +27,16 @@ func main() {
 
 	s := newSet()
 
-	for x := 0; x < 600; x++ {
-		for y := 0; y < 600; y++ {
+	for i := 0; i < 20; i++ {
+		for j := 0; j < 30; j++ {
+			s.addOne(point{i, j})
 			if s.done {
-				fmt.Printf("Points: %v\n", s.p)
-				fmt.Printf("Triangle areas: %v\n", s.triangleAreas)
-				fmt.Printf("Total area: %f\n", s.area)
+				fmt.Printf("points: %v\n", s.p)
+				fmt.Printf("triangles: %v\n", s.triangleAreas)
 				return
 			}
-			s.addOne(point{x, y})
 		}
 	}
-
 }
 
 type set struct {
@@ -43,10 +44,10 @@ type set struct {
 	gridY         int
 	collinearX    map[int]int
 	collinearY    map[int]int
-	triangleAreas map[float32]int
-	p             [11]point
+	triangleAreas map[float64]int
+	p             []point
 	i             int
-	area          float32
+	area          float64
 	done          bool
 }
 
@@ -59,44 +60,81 @@ func newSet() *set {
 	s := &set{
 		collinearX:    make(map[int]int),
 		collinearY:    make(map[int]int),
-		triangleAreas: make(map[float32]int),
+		triangleAreas: make(map[float64]int),
+		p:             make([]point, 0),
 	}
 	return s
 }
 
 func (s *set) addOne(p point) {
-	if !s.checkCollinear(p) {
+	if !s.isCollinear(p) {
 		return
+	}
+	if s.i >= 2 {
+		if !s.checkAreas(p) {
+			return
+		}
 	}
 	s.collinearX[p.x]++
 	s.collinearY[p.y]++
-	s.p[s.i] = p
+	s.p = append(s.p, p)
 	s.i++
 
-	if s.i == 11 {
+	if s.i == 5 {
 		s.done = true
 	}
 }
 
-func (s *set) checkCollinear(p point) bool {
+func (s *set) isCollinear(p point) bool {
 	if s.collinearX[p.x] == 2 || s.collinearY[p.y] == 2 {
 		return false
 	}
 	return true
 }
 
-// calculate areas
-func getAreasTest() map[float32]bool {
-	areas := make(map[float32]bool)
+func (s *set) checkAreas(p point) bool {
+	points := make([]point, len(s.p)+1)
+	copy(points, s.p)
+	points[len(points)-1] = p
+	areas := make(map[float64]int)
+	for k, v := range s.triangleAreas {
+		areas[k] = v
+	}
+	combinations := getCombinations(points)
+	for _, comb := range combinations {
+		S := getArea(comb[0], comb[1], comb[2])
+		_, ok := areas[S]
+		if ok {
+			return false
+		}
+		areas[S]++
+	}
+	s.triangleAreas = areas
+	return true
+}
 
-	p := []point{
-		point{1, 0},
-		point{1, 1},
-		point{0, 3},
-		point{3, 3},
+func getArea(a, b, c point) (s float64) {
+	s = math.Abs(float64(a.x*(b.y-c.y)-b.x*(a.y-c.y)+c.x*(a.y-b.y))) / 2
+	return
+}
+
+// get all posible combinations of set.points by 3
+func getCombinations(input []point) [][]point {
+	var result = make([][]point, 0)
+	var recf func([]point, int, int)
+	recf = func(comb []point, low, high int) {
+		if high > len(input) {
+			result = append(result, comb)
+			return
+		}
+		for i := low; i < high; i++ {
+			combCopy := make([]point, len(comb))
+			copy(combCopy, comb)
+			combCopy = append(combCopy, input[i])
+			recf(combCopy, i+1, high+1)
+		}
 	}
 
-	fmt.Printf("p = %+v\n", p)
-
-	return areas
+	recf(make([]point, 0), 0, len(input)-2)
+	return result
 }
