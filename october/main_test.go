@@ -31,3 +31,54 @@ func Test_getArea(t *testing.T) {
 		})
 	}
 }
+
+func Test_gridConstraint(t *testing.T) {
+	type args struct {
+		t    int
+		b    int
+		r    int
+		want int
+	}
+}
+
+func Test_set_copy(t *testing.T) {
+	s1 := newSet()
+	s1.collinearX[1] = 1
+
+	s2 := s1.copy()
+	s2.collinearX[1] = 2
+	s1.p = append(s1.p, point{1, 1})
+
+	if s1.collinearX[1] != 1 {
+		t.Errorf("want s1.colX = 1, got=%d", s1.collinearX[1])
+	}
+
+	if len(s2.p) != 0 {
+		t.Errorf("want len s2.p = 0, got %d", len(s2.p))
+	}
+}
+
+func Test_checkAreas(t *testing.T) {
+	s := newSet()
+
+	type args struct {
+		name string
+		d    []point
+		want bool
+	}
+
+	tests := []args{
+		args{"true test", []point{{1, 0}, {1, 1}, {0, 3}, {3, 3}}, true},
+		args{"false test", []point{{0, 1}, {1, 1}, {1, 0}, {2, 0}}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s.p = tt.d
+			got := s.checkAreas()
+			if got != tt.want {
+				t.Errorf("%v should be %v", tt.d, tt.want)
+			}
+		})
+	}
+}

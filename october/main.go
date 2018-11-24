@@ -23,68 +23,220 @@ The areas formed by the 4 triangles are:
 Find a solution for N=11 and the L1*L2<=600.
 */
 
+const (
+	// GRID max grid size
+	GRID int = 20
+	// N max number of points
+	N int = 4
+)
+
+var solutions = make([][]point, 0)
+
 func main() {
-
-	s := newSet()
-
-	for i := 0; i < 20; i++ {
-		for j := 0; j < 30; j++ {
-			s.addOne(point{i, j})
-			if s.done {
-				fmt.Printf("points: %v\n", s.p)
-				fmt.Printf("triangles: %v\n", s.triangleAreas)
-				return
-			}
-		}
+	// RUN
+	pts := gridConstaint(0, 0, 0)
+	fmt.Printf("len pts:%d\n", len(pts))
+	for i := 0; i < N; i++ {
+		initSet := newSet()
+		Search(initSet, point{i, 0})
 	}
 }
 
+// Search function is a recursive search
+func Search(s *set, pt point) {
+	// create deep copy of set
+	sc := s.copy()
+
+	// add point to solution
+	sc.p = append(sc.p, pt)
+	sc.seen[pt] = true
+
+	//fmt.Scanln()
+	//fmt.Printf("N=%d pt=%v\n", len(sc.p), sc.p)
+
+	// init slice of available points
+	var pts []point
+
+	// we ensure constraints satisfaction before calling search function
+	// that means pt point already satisfied constraints
+	// except areas
+
+	// now search for next available points
+
+	// CONSTRAINT#1 - grid
+	// adjust current grid border values for Top, Bottom and Right with new point
+	if pt.y > sc.gT {
+		sc.gT = pt.y
+	}
+	if pt.y < sc.gB {
+		sc.gB = pt.y
+	}
+	if pt.x > sc.gR {
+		sc.gR = pt.y
+	}
+	//pts = gridConstaint(sc.gT, sc.gB, sc.gR) // test constraints and filter remain points
+	pts = gridConstaint(0, 0, 0)
+
+	// remove seen points from pts
+	temp := make([]point, 0)
+	for _, po := range pts {
+		_, ok := sc.seen[po]
+		if ok {
+			continue
+		}
+		temp = append(temp, po)
+	}
+	pts = temp
+
+	//fmt.Printf("grid = %+v\n", pts)
+
+	// CONSTRAINT#2 - collinearity
+	// adjust constraints map,
+	sc.collinearX[pt.x]++
+	sc.collinearY[pt.y]++
+	pts = collinearityConstraint(sc.collinearX, sc.collinearY, pts) // test collinearity
+
+	//fmt.Printf("coll = %+v\n", pts)
+
+	// CONSTRAINT#3 - areas
+	// check areas only when we have at least 3 points
+	if len(sc.p) >= 3 {
+		if !sc.checkAreas() {
+			return
+		}
+	}
+
+	// termination
+	// if solution is found, len(s.p) == N
+	if len(sc.p) == N {
+		solutions = append(solutions, sc.p)
+		fmt.Printf("new solution = %+v\n", sc.p)
+		return
+	}
+
+	// if there available points continue search
+	// otherwise deadend solution
+	if len(pts) == 0 {
+		return
+	}
+	for _, avPoint := range pts {
+		Search(sc, avPoint)
+	}
+}
+
+/*
+gridConstraint(t, b, r, lim)
+	res = []int
+	for x = r to lim
+		//above x-axis
+		for y = t to lim
+			if x*y < lim then
+				res.append((x,y))
+		// below x
+		for y = b to -lim
+			if x*y < -lim then
+				res.append((x,y))
+	return res
+*/
+func gridConstaint(t, b, r int) []point {
+	res := make([]point, 0)
+	for x := r; x <= GRID; x++ {
+		for y := t; y <= GRID; y++ {
+			if (x)*(y) <= GRID {
+				res = append(res, point{x, y})
+			}
+		}
+		for y := b; y >= -GRID; y-- {
+			if (x)*(y) >= GRID {
+				res = append(res, point{x, y})
+			}
+		}
+	}
+	return res
+}
+
+/*
+collinearityConstraint(xConstr, yConstr, []points)
+	filtered = []points
+	for point in []points:
+		if xConstr[point.x] == 2 || yConstr[point.y] == 2:
+			continue
+		filtered.append(point)
+	return filtered
+*/
+func collinearityConstraint(xConstr, yConstr map[int]int, pts []point) []point {
+	res := make([]point, 0)
+	for _, pt := range pts {
+		if xConstr[pt.x] == 2 || yConstr[pt.y] == 2 {
+			continue
+		}
+		res = append(res, pt)
+	}
+	return res
+}
+
+// set is an snapshot of current search progress
 type set struct {
-	gridX         int
-	gridY         int
+	gT            int
+	gB            int
+	gR            int
 	collinearX    map[int]int
 	collinearY    map[int]int
 	triangleAreas map[float64]int
 	p             []point
-	i             int
-	area          float64
-	done          bool
+	seen          map[point]bool
 }
 
+// x,y coordinates
 type point struct {
 	x int
 	y int
 }
 
+// create new set of values
 func newSet() *set {
 	s := &set{
 		collinearX:    make(map[int]int),
 		collinearY:    make(map[int]int),
 		triangleAreas: make(map[float64]int),
 		p:             make([]point, 0),
+		seen:          make(map[point]bool),
 	}
 	return s
 }
 
-func (s *set) addOne(p point) {
-	if !s.isCollinear(p) {
-		return
+// creates deep copy of current set
+func (s *set) copy() *set {
+	t := &set{
+		gB:            s.gB,
+		gR:            s.gR,
+		gT:            s.gT,
+		collinearX:    make(map[int]int),
+		collinearY:    make(map[int]int),
+		triangleAreas: make(map[float64]int),
+		seen:          make(map[point]bool),
+		p:             make([]point, 0),
 	}
-	if s.i >= 2 {
-		if !s.checkAreas(p) {
-			return
-		}
-	}
-	s.collinearX[p.x]++
-	s.collinearY[p.y]++
-	s.p = append(s.p, p)
-	s.i++
 
-	if s.i == 5 {
-		s.done = true
+	for k, v := range s.collinearX {
+		t.collinearX[k] = v
 	}
+	for k, v := range s.collinearY {
+		t.collinearY[k] = v
+	}
+	for k, v := range s.triangleAreas {
+		t.triangleAreas[k] = v
+	}
+	for k, v := range s.seen {
+		t.seen[k] = v
+	}
+
+	t.p = append(t.p, s.p...)
+
+	return t
 }
 
+// test collinearity constraint for new point
 func (s *set) isCollinear(p point) bool {
 	if s.collinearX[p.x] == 2 || s.collinearY[p.y] == 2 {
 		return false
@@ -92,27 +244,21 @@ func (s *set) isCollinear(p point) bool {
 	return true
 }
 
-func (s *set) checkAreas(p point) bool {
-	points := make([]point, len(s.p)+1)
-	copy(points, s.p)
-	points[len(points)-1] = p
-	areas := make(map[float64]int)
-	for k, v := range s.triangleAreas {
-		areas[k] = v
-	}
-	combinations := getCombinations(points)
+// test areas constraint for new point
+func (s *set) checkAreas() bool {
+	combinations := getCombinations(s.p)
 	for _, comb := range combinations {
 		S := getArea(comb[0], comb[1], comb[2])
-		_, ok := areas[S]
+		_, ok := s.triangleAreas[S]
 		if ok {
 			return false
 		}
-		areas[S]++
+		s.triangleAreas[S]++
 	}
-	s.triangleAreas = areas
 	return true
 }
 
+// return area of triangle by 3 points
 func getArea(a, b, c point) (s float64) {
 	s = math.Abs(float64(a.x*(b.y-c.y)-b.x*(a.y-c.y)+c.x*(a.y-b.y))) / 2
 	return
