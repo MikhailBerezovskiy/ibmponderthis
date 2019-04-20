@@ -28,6 +28,7 @@
  */
 
 #include <array>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <stack>
@@ -241,6 +242,8 @@ game play(game &g) {
 //
 //
 int main(void) {
+  ofstream resFile;
+  resFile.open("solutions.txt");
 
   // initialize list of primes, that will be used for finding solution
   vector<int> primes = makePrimes(40);
@@ -261,9 +264,14 @@ int main(void) {
     if (result.win) {
       cout << "WIN" << endl;
       result.printFunc();
-      getchar();
+
+      for (int i = 0; i < 3; ++i) {
+        resFile << result.b[i][0] << '\t' << result.b[i][1] << '\t'
+                << result.b[i][2] << endl;
+      }
+      resFile << endl;
     }
   }
-
+  resFile.close();
   return 0;
 }
